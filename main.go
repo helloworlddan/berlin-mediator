@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"cloud.google.com/go/translate"
+	"github.com/helloworlddan/berlin-mediator/culture"
+	"golang.org/x/text/language"
 
 	aiplatform "cloud.google.com/go/aiplatform/apiv1"
 	"cloud.google.com/go/aiplatform/apiv1/aiplatformpb"
@@ -21,22 +23,14 @@ const Version = "0.0.1"
 
 func main() {
 	projectID := flag.String("g", "", "specify GCP project id.")
-	targetLanguage := flag.String("l", "", "target language.")
-	targetCulture := flag.String("c", "", "target culture (country TLD).")
+	targetLanguage := flag.String("l", "de", "target language.")
+	targetRegion := flag.String("r", "DE", "target region.")
 
 	flag.Parse()
 
 	if *projectID == "" {
 		fmt.Fprintf(os.Stderr, "no GCP project ID specified, supply one with '-g'\n")
 		os.Exit(-1)
-	}
-
-	if *targetLanguage == "" {
-		*targetLanguage = "English"
-	}
-
-	if *targetCulture == "" {
-		*targetCulture = "Armenian"
 	}
 
 	inputFile := flag.Arg(0)
@@ -63,9 +57,15 @@ func main() {
 	// TODO OK let's chain stuff
 
 	input := buffer.String()
-	fmt.Printf("--------------INPUT-----------------\n%s\n", input)
+	fmt.Printf(
+		"--------------CONFIG-----------------\nTarget language & region: %s %s \n\n",
+		*targetLanguage,
+		*targetRegion,
+	)
 
-	prompt := "Which language is this in just one word:"
+	fmt.Printf("--------------INPUT-----------------\n%s\n\n", input)
+
+	prompt := "[API CALL] translate.DetectLanguage...."
 	output, err := detectLanguage(input)
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
@@ -73,28 +73,61 @@ func main() {
 	sourceLanguage := output
 	dumpChainLink(prompt, output, sourceLanguage)
 
-	prompt = "From which culture is the speaker in this text, only use a single word:"
-	output, err = predictText(prompt, input, *projectID, 1)
-	sourceCulture := strings.TrimSpace(output)
-	dumpChainLink(prompt, output, sourceCulture)
-
-	prompt = fmt.Sprintf(
-		"Translate this to %s and change the tone so it's more accessible to %s people",
-		*targetLanguage,
-		*targetCulture,
-	)
-	output, err = predictText(prompt, input, *projectID, 256)
-	dumpChainLink(prompt, output)
-
+	delta, err := culture.Delta(sourceLanguage, *targetRegion)
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
 	}
+	fmt.Printf("--------------DELTA-----------------\n%#v\n\n", delta)
+
+	intensities := culture.StyleToTextIntensity(delta)
+
+	if (delta != culture.Style{}) {
+		prompt = fmt.Sprintf("Rephrase this text but make it %s", strings.Join(intensities, ", "))
+		output, err = predictText(prompt, input, *projectID, 256)
+		if err != nil {
+			fmt.Printf("error: %v\n", err)
+		}
+		dumpChainLink(prompt, output)
+		input = output
+	}
+
+	prompt = "[APICALL] translate.Translate...."
+	output, err = translateLanguage(input, *targetLanguage, *targetLanguage)
+	if err != nil {
+		fmt.Printf("error: %v\n", err)
+	}
+	dumpChainLink(prompt, output)
+
 }
 
 func dumpChainLink(prompt string, output string, context ...string) {
-	fmt.Printf("--------------PROMPT-----------------\n%s\n", prompt)
-	fmt.Printf("--------------OUTPUT-----------------\n%s\n", output)
-	fmt.Printf("--------------CONTEXT----------------\n%s\n", context)
+	fmt.Printf("--------------PROMPT-----------------\n%s\n\n", prompt)
+	fmt.Printf("--------------OUTPUT-----------------\n%s\n\n", output)
+	if len(context) > 0 {
+		fmt.Printf("--------------CONTEXT----------------\n%s\n\n", context)
+	}
+}
+
+func translateLanguage(input string, lang string, region string) (string, error) {
+	ctx := context.Background()
+	client, err := translate.NewClient(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer client.Close()
+	langBase := language.MustParseBase(lang)
+	langRegion := language.MustParseRegion(region)
+
+	langTag, err := language.Compose(langBase, langRegion)
+	if err != nil {
+		return "", err
+	}
+
+	translationList, err := client.Translate(ctx, []string{input}, langTag, nil)
+
+	translation := translationList[0]
+
+	return translation.Text, nil
 }
 
 func detectLanguage(input string) (string, error) {
@@ -109,8 +142,6 @@ func detectLanguage(input string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	fmt.Printf("%#v\n", detectionList)
 
 	detection := detectionList[0]
 
