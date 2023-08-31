@@ -92,7 +92,7 @@ func main() {
 	}
 
 	prompt = "[APICALL] translate.Translate...."
-	output, err = translateLanguage(input, *targetLanguage, *targetLanguage)
+	output, err = translateLanguage(input, *targetLanguage, *targetRegion)
 	if err != nil {
 		fmt.Printf("error: %v\n", err)
 	}
