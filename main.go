@@ -79,7 +79,7 @@ func main() {
 	}
 	fmt.Printf("--------------DELTA-----------------\n%#v\n\n", delta)
 
-	intensities := culture.StyleToTextIntensity(delta)
+	intensities := delta.TextIntensities()
 
 	if (delta != culture.Style{}) {
 		prompt = fmt.Sprintf("Rephrase this text but make it %s", strings.Join(intensities, ", "))

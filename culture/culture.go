@@ -17,7 +17,7 @@ type Style struct {
 	Scheduling    int
 }
 
-func StyleToTextIntensity(style Style) []string {
+func (s Style) TextIntensities() []string {
 	intensityMap := map[int]string{
 		-10: "WAY LESS",
 		-9:  "WAY LESS",
@@ -44,13 +44,13 @@ func StyleToTextIntensity(style Style) []string {
 
 	texts := []string{}
 
-	texts = append(texts, fmt.Sprintf("%s communicative", intensityMap[style.Communication]))
-	texts = append(texts, fmt.Sprintf("%s evaluating", intensityMap[style.Evaluation]))
-	texts = append(texts, fmt.Sprintf("%s leading", intensityMap[style.Leading]))
-	texts = append(texts, fmt.Sprintf("%s decisive", intensityMap[style.Deciding]))
-	texts = append(texts, fmt.Sprintf("%s trusting", intensityMap[style.Trusting]))
-	texts = append(texts, fmt.Sprintf("%s disagreeing", intensityMap[style.Disagreeing]))
-	texts = append(texts, fmt.Sprintf("%s flexible", intensityMap[style.Scheduling]))
+	texts = append(texts, fmt.Sprintf("%s communicative", intensityMap[s.Communication]))
+	texts = append(texts, fmt.Sprintf("%s evaluating", intensityMap[s.Evaluation]))
+	texts = append(texts, fmt.Sprintf("%s leading", intensityMap[s.Leading]))
+	texts = append(texts, fmt.Sprintf("%s decisive", intensityMap[s.Deciding]))
+	texts = append(texts, fmt.Sprintf("%s trusting", intensityMap[s.Trusting]))
+	texts = append(texts, fmt.Sprintf("%s disagreeing", intensityMap[s.Disagreeing]))
+	texts = append(texts, fmt.Sprintf("%s flexible", intensityMap[s.Scheduling]))
 
 	return texts
 }
